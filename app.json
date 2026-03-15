@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "Planning → Calendrier",
+    "slug": "planning-to-calendar",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0A0A0F"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.yourcompany.planningtocalendar",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Utilisé pour photographier votre planning.",
+        "NSPhotoLibraryUsageDescription": "Utilisé pour sélectionner une photo de votre planning.",
+        "NSCalendarsUsageDescription": "Utilisé pour ajouter vos événements dans votre calendrier.",
+        "NSCalendarsFullAccessUsageDescription": "Utilisé pour créer et ajouter vos événements de planning dans votre calendrier."
+      }
+    },
+    "android": {
+      "package": "com.yourcompany.planningtocalendar",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_CALENDAR",
+        "android.permission.READ_CALENDAR",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Utilisé pour sélectionner une photo de votre planning.",
+          "cameraPermission": "Utilisé pour photographier votre planning."
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Utilisé pour ajouter vos événements au calendrier."
+        }
+      ],
+      "expo-asset"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "15e8c586-fbbd-476f-9fbc-4a1173d8dc84"
+      }
+    }
+  }
+}
