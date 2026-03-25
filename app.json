@@ -1,8 +1,9 @@
 {
   "expo": {
-    "name": "Planning → Calendrier",
+    "name": "Planning to Calendar",
     "slug": "planning-to-calendar",
     "version": "1.0.0",
+    "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "splash": {
@@ -10,16 +11,18 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.yourcompany.planningtocalendar",
+      "bundleIdentifier": "com.jeromeveit.planningtocalendar",
       "infoPlist": {
-        "NSCameraUsageDescription": "Utilisé pour photographier votre planning.",
-        "NSPhotoLibraryUsageDescription": "Utilisé pour sélectionner une photo de votre planning.",
-        "NSCalendarsUsageDescription": "Utilisé pour ajouter vos événements dans votre calendrier.",
-        "NSCalendarsFullAccessUsageDescription": "Utilisé pour créer et ajouter vos événements de planning dans votre calendrier."
-      }
+        "NSCameraUsageDescription": "Utilis\u00e9 pour photographier votre planning.",
+        "NSPhotoLibraryUsageDescription": "Utilis\u00e9 pour s\u00e9lectionner une photo de votre planning.",
+        "NSCalendarsUsageDescription": "Utilis\u00e9 pour ajouter vos \u00e9v\u00e9nements dans votre calendrier.",
+        "NSCalendarsFullAccessUsageDescription": "Utilis\u00e9 pour cr\u00e9er et ajouter vos \u00e9v\u00e9nements de planning dans votre calendrier.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "icon": "./assets/icon.png"
     },
     "android": {
-      "package": "com.yourcompany.planningtocalendar",
+      "package": "com.jeromeveit.planningtocalendar",
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -32,14 +35,14 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Utilisé pour sélectionner une photo de votre planning.",
-          "cameraPermission": "Utilisé pour photographier votre planning."
+          "photosPermission": "Utilis\u00e9 pour s\u00e9lectionner une photo de votre planning.",
+          "cameraPermission": "Utilis\u00e9 pour photographier votre planning."
         }
       ],
       [
         "expo-calendar",
         {
-          "calendarPermission": "Utilisé pour ajouter vos événements au calendrier."
+          "calendarPermission": "Utilis\u00e9 pour ajouter vos \u00e9v\u00e9nements au calendrier."
         }
       ],
       "expo-asset"
