@@ -31,7 +31,7 @@ export default function OnboardingScreen({ navigation }: Props) {
     await ImagePicker.requestCameraPermissionsAsync();
     await ImagePicker.requestMediaLibraryPermissionsAsync();
     await Calendar.requestCalendarPermissionsAsync();
-    navigation.replace("Paywall");
+    navigation.replace("Home");
   };
 
   const openPrivacy = () => {
