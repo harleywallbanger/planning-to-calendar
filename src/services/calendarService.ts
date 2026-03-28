@@ -47,7 +47,7 @@ export async function addEventsToDeviceCalendar(events: CalendarEvent[]): Promis
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
       success++;
-    } catch { failed++; }
+    } catch (e) { console.warn('[calendarService] Échec ajout événement:', e); failed++; }
   }
   return { success, failed };
 }

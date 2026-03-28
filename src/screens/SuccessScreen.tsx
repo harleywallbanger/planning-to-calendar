@@ -3,10 +3,12 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated, SafeAreaView } from
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 
 type Props = { navigation: NativeStackNavigationProp<RootStackParamList, 'Success'> };
 
 export default function SuccessScreen({ navigation }: Props) {
+  const { t } = useTranslation();
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -27,10 +29,10 @@ export default function SuccessScreen({ navigation }: Props) {
             </LinearGradient>
           </Animated.View>
           <Animated.View style={{ opacity: fadeAnim, alignItems: "center" }}>
-            <Text style={s.title}>Importe avec succes !</Text>
-            <Text style={s.subtitle}>Vos evenements ont ete ajoutes a votre calendrier.</Text>
+            <Text style={s.title}>{t('success.title')}</Text>
+            <Text style={s.subtitle}>{t('success.subtitle')}</Text>
             <TouchableOpacity style={s.btn} onPress={() => navigation.popToTop()}>
-              <Text style={s.btnText}>Scanner un autre planning</Text>
+              <Text style={s.btnText}>{t('success.scanAnother')}</Text>
             </TouchableOpacity>
           </Animated.View>
         </View>

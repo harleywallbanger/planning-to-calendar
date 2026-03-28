@@ -1,22 +1,32 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
-  Alert, Image, Animated, Dimensions, SafeAreaView,
+  Alert, Image, Animated, Dimensions, SafeAreaView, Platform,
 } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
 import { extractEventsFromImage } from '../services/aiExtraction';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get('window');
 type HomeScreenProps = { navigation: NativeStackNavigationProp<RootStackParamList, 'Home'> };
 
 export default function HomeScreen({ navigation }: HomeScreenProps) {
+  const { t, i18n } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
+    };
+  }, []);
 
   React.useEffect(() => {
     const pulse = Animated.loop(
@@ -30,16 +40,16 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   }, []);
 
   const handlePickImage = async (fromCamera: boolean) => {
-    const permissionResult = fromCamera
-      ? await ImagePicker.requestCameraPermissionsAsync()
-      : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) {
-      Alert.alert('Permission requise', fromCamera ? "L'acces a la camera est necessaire." : "L'acces a la galerie est necessaire.");
-      return;
+    if (fromCamera) {
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert(t('home.permission.title'), t('home.permission.camera'));
+        return;
+      }
     }
     const result = fromCamera
-      ? await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.9, allowsEditing: true })
-      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.9, allowsEditing: true });
+      ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.9, allowsEditing: true })
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.9, allowsEditing: true });
     if (!result.canceled && result.assets[0]) {
       const uri = result.assets[0].uri;
       setSelectedImage(uri);
@@ -47,31 +57,56 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     }
   };
 
+  const handleTestImage = async () => {
+    const testUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Simple_English_Wikipedia_article.png/800px-Simple_English_Wikipedia_article.png';
+    const localUri = FileSystem.cacheDirectory + 'test_planning.jpg';
+    try {
+      setIsLoading(true);
+      setLoadingMessage(t('home.dev.loadingTest'));
+      const { uri } = await FileSystem.downloadAsync(testUrl, localUri);
+      setSelectedImage(uri);
+      await analyzeImage(uri);
+    } catch {
+      Alert.alert(t('common.error'), t('home.dev.errorTest'));
+      setIsLoading(false);
+    }
+  };
+
   const analyzeImage = async (uri: string) => {
     setIsLoading(true);
-    setLoadingMessage("Analyse de l'image en cours...");
+    setLoadingMessage(t('home.loading.analyzing'));
     try {
-      setLoadingMessage('Detection des evenements...');
+      setLoadingMessage(t('home.loading.detecting'));
       const events = await extractEventsFromImage(uri);
       if (events.length === 0) {
-        Alert.alert('Aucun evenement trouve', "Essayez avec une photo plus nette.", [{ text: 'Reessayer', onPress: () => setSelectedImage(null) }]);
+        Alert.alert(
+          t('home.error.noEventsTitle'),
+          t('home.error.noEventsMessage'),
+          [{ text: t('home.error.retry'), onPress: () => setSelectedImage(null) }],
+        );
         return;
       }
-      setLoadingMessage(`${events.length} evenement(s) trouve(s) !`);
-      setTimeout(() => navigation.navigate('Preview', { events, imageUri: uri }), 600);
+      setLoadingMessage(t('home.loading.found', { count: events.length }));
+      navTimeoutRef.current = setTimeout(() => navigation.navigate('Preview', { events, imageUri: uri }), 600);
     } catch (error: any) {
-      Alert.alert('Erreur', `Impossible d'analyser l'image: ${error.message}`, [{ text: 'OK', onPress: () => setSelectedImage(null) }]);
+      Alert.alert(
+        t('common.error'),
+        t('home.error.analyzeMessage', { message: error.message }),
+        [{ text: t('common.ok'), onPress: () => setSelectedImage(null) }],
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
+  const footerPills = ['Google Calendar', 'Apple Calendar', t('home.allApps')];
+
   return (
     <LinearGradient colors={['#0A0A0F', '#0F0F1A', '#0A0A0F']} style={styles.container}>
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
-          <Text style={styles.appName}>PLANNING</Text>
-          <Text style={styles.appSubtitle}>CALENDRIER</Text>
+          <Text style={styles.appName}>{t('home.appName')}</Text>
+          <Text style={styles.appSubtitle}>{t('home.appSubtitle')}</Text>
           <View style={styles.headerLine} />
         </View>
         <View style={styles.center}>
@@ -88,23 +123,28 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               <Animated.View style={[styles.scanCircle, { transform: [{ scale: pulseAnim }] }]}>
                 <Text style={styles.scanIcon}>📅</Text>
               </Animated.View>
-              <Text style={styles.title}>Scannez votre planning</Text>
-              <Text style={styles.subtitle}>L'IA extrait automatiquement tous vos evenements et les ajoute a votre calendrier</Text>
+              <Text style={styles.title}>{t('home.title')}</Text>
+              <Text style={styles.subtitle}>{t('home.subtitle')}</Text>
               <View style={styles.buttonContainer}>
                 <TouchableOpacity style={styles.primaryButton} onPress={() => handlePickImage(true)} activeOpacity={0.85}>
                   <LinearGradient colors={['#6C63FF', '#4F46E5']} style={styles.buttonGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-                    <Text style={styles.primaryButtonText}>Prendre une photo</Text>
+                    <Text style={styles.primaryButtonText}>{t('home.takePhoto')}</Text>
                   </LinearGradient>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.secondaryButton} onPress={() => handlePickImage(false)} activeOpacity={0.85}>
-                  <Text style={styles.secondaryButtonText}>Choisir depuis la galerie</Text>
+                  <Text style={styles.secondaryButtonText}>{t('home.chooseGallery')}</Text>
                 </TouchableOpacity>
+                {__DEV__ && (
+                  <TouchableOpacity style={styles.devButton} onPress={handleTestImage} activeOpacity={0.85}>
+                    <Text style={styles.devButtonText}>{t('home.dev.testButton')}</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </>
           )}
         </View>
         <View style={styles.footer}>
-          {['Google Calendar', 'Apple Calendar', '+ Toutes les apps'].map(label => (
+          {footerPills.map(label => (
             <View key={label} style={styles.featurePill}>
               <Text style={styles.featureText}>{label}</Text>
             </View>
@@ -140,4 +180,6 @@ const styles = StyleSheet.create({
   footer: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 8, paddingBottom: 24 },
   featurePill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: '#1E1E30', backgroundColor: '#0F0F1A' },
   featureText: { color: '#444466', fontSize: 11, fontWeight: '500' },
+  devButton: { borderRadius: 12, borderWidth: 1, borderColor: '#FF6B3544', paddingVertical: 14, alignItems: 'center', backgroundColor: '#1A0F0A' },
+  devButtonText: { color: '#FF6B35', fontWeight: '600', fontSize: 13 },
 });
