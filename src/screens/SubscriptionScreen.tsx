@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { PurchasesPackage } from 'react-native-purchases';
+import Purchases, { PurchasesPackage } from 'react-native-purchases';
 import { RootStackParamList } from '../../App';
 import {
   getCurrentOffering,
@@ -24,6 +24,7 @@ export default function SubscriptionScreen({ navigation }: SubscriptionScreenPro
   const { t } = useTranslation();
   const [monthlyPackage, setMonthlyPackage] = useState<PurchasesPackage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
 
@@ -36,9 +37,27 @@ export default function SubscriptionScreen({ navigation }: SubscriptionScreenPro
   }, []);
 
   const loadOffering = async () => {
+    setIsLoading(true);
+    setLoadError(false);
     const offering = await getCurrentOffering();
     if (offering?.monthly) {
       setMonthlyPackage(offering.monthly);
+      setLoadError(false);
+    } else {
+      // Fallback : appel direct RevenueCat sans passer par le service
+      try {
+        const fallback = await Purchases.getOfferings();
+        if (fallback.current?.monthly) {
+          setMonthlyPackage(fallback.current.monthly);
+          setLoadError(false);
+        } else {
+          console.warn('[RC] SubscriptionScreen: fallback aussi vide, offering:', fallback.current?.identifier);
+          setLoadError(true);
+        }
+      } catch (e) {
+        console.warn('[RC] SubscriptionScreen: fallback getOfferings error:', e);
+        setLoadError(true);
+      }
     }
     setIsLoading(false);
   };
@@ -53,7 +72,7 @@ export default function SubscriptionScreen({ navigation }: SubscriptionScreenPro
     try {
       const success = await purchasePackage(monthlyPackage);
       if (success) {
-        navigation.replace('Home');
+        navigation.goBack();
       }
     } catch (error: any) {
       if (!error.userCancelled) {
@@ -69,7 +88,7 @@ export default function SubscriptionScreen({ navigation }: SubscriptionScreenPro
     try {
       const success = await restorePurchases();
       if (success) {
-        navigation.replace('Home');
+        navigation.goBack();
       } else {
         Alert.alert(t('paywall.error.restoreNoneTitle'), t('paywall.error.restoreNoneMessage'));
       }
@@ -144,21 +163,33 @@ export default function SubscriptionScreen({ navigation }: SubscriptionScreenPro
           {isLoading ? (
             <ActivityIndicator color="#6C63FF" style={{ marginVertical: 24 }} />
           ) : (
-            <View style={[s.ctaButtonShadow, (isPurchasing || !monthlyPackage) && s.ctaDisabled]}>
-              <TouchableOpacity
-                style={s.ctaButton}
-                onPress={handleSubscribe}
-                disabled={isPurchasing || !monthlyPackage}
-                activeOpacity={0.85}
-              >
-                <LinearGradient colors={['#6C63FF', '#4F46E5']} style={s.ctaGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-                  {isPurchasing
-                    ? <ActivityIndicator color="#fff" />
-                    : <Text style={s.ctaText}>{t('paywall.cta')}</Text>
-                  }
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
+            <>
+              {loadError && (
+                <TouchableOpacity
+                  onPress={monthlyPackage ? handleSubscribe : loadOffering}
+                  style={s.retryButton}
+                >
+                  <Text style={s.retryText}>{monthlyPackage ? "S'abonner" : '🔄 Réessayer'}</Text>
+                </TouchableOpacity>
+              )}
+              {(!loadError || monthlyPackage) && (
+                <View style={[s.ctaButtonShadow, isPurchasing && s.ctaDisabled]}>
+                  <TouchableOpacity
+                    style={s.ctaButton}
+                    onPress={handleSubscribe}
+                    disabled={isPurchasing}
+                    activeOpacity={0.85}
+                  >
+                    <LinearGradient colors={['#6C63FF', '#4F46E5']} style={s.ctaGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                      {isPurchasing
+                        ? <ActivityIndicator color="#fff" />
+                        : <Text style={s.ctaText}>{t('paywall.cta')}</Text>
+                      }
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </>
           )}
 
           <Text style={s.ctaCaption}>{t('paywall.ctaCaption')}</Text>
@@ -244,6 +275,9 @@ const s = StyleSheet.create({
   ctaGradient: { paddingVertical: 18, alignItems: 'center', justifyContent: 'center', minHeight: 56 },
   ctaText: { color: '#fff', fontWeight: '800', fontSize: 17, letterSpacing: 0.2 },
   ctaCaption: { color: '#444466', fontSize: 12, textAlign: 'center', marginBottom: 20 },
+
+  retryButton: { alignItems: 'center', paddingVertical: 16, marginBottom: 12, borderRadius: 14, borderWidth: 1, borderColor: '#6C63FF44' },
+  retryText: { color: '#6C63FF', fontSize: 15, fontWeight: '600' },
 
   restoreButton: { alignItems: 'center', paddingVertical: 12, marginBottom: 20 },
   restoreText: { color: '#444466', fontSize: 13, textDecorationLine: 'underline' },
