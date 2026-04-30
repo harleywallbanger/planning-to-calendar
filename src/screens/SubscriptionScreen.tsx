@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
   Alert, SafeAreaView, ScrollView, Linking,
@@ -20,6 +20,16 @@ type SubscriptionScreenProps = {
 
 const FEATURE_ICONS = ['📸', '🤖', '📅', '📤', '👨‍👩‍👧‍👦'];
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Timeout: ${label}`)), ms);
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
+
 export default function SubscriptionScreen({ navigation }: SubscriptionScreenProps) {
   const { t } = useTranslation();
   const [monthlyPackage, setMonthlyPackage] = useState<PurchasesPackage | null>(null);
@@ -27,6 +37,16 @@ export default function SubscriptionScreen({ navigation }: SubscriptionScreenPro
   const [loadError, setLoadError] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
+  const safeSetState = (fn: () => void) => {
+    if (isMountedRef.current) fn();
+  };
 
   const features = (t('paywall.features', { returnObjects: true }) as string[]).map(
     (label, i) => ({ icon: FEATURE_ICONS[i], label }),
@@ -67,35 +87,63 @@ export default function SubscriptionScreen({ navigation }: SubscriptionScreenPro
   };
 
   const handleSubscribe = async () => {
-    if (!monthlyPackage) return;
-    setIsPurchasing(true);
+    if (!monthlyPackage || isPurchasing) return;
+    safeSetState(() => setIsPurchasing(true));
     try {
-      const success = await purchasePackage(monthlyPackage);
-      if (success) {
+      const success = await withTimeout(purchasePackage(monthlyPackage), 30_000, 'purchase');
+      if (success && isMountedRef.current) {
         navigation.goBack();
       }
     } catch (error: any) {
-      if (!error.userCancelled) {
+      if (!isMountedRef.current) return;
+      const code: string | undefined = error?.code;
+      if (code === Purchases.PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) {
+        // user dismissed — no alert needed
+      } else if (code === Purchases.PURCHASES_ERROR_CODE.PRODUCT_ALREADY_PURCHASED_ERROR) {
+        Alert.alert(t('common.error'), 'Vous possédez déjà cet abonnement. Utilisez "Restaurer mes achats".');
+      } else if (code === Purchases.PURCHASES_ERROR_CODE.NETWORK_ERROR) {
+        Alert.alert(t('common.error'), 'Problème réseau, vérifiez votre connexion.');
+      } else if (code === Purchases.PURCHASES_ERROR_CODE.STORE_PROBLEM_ERROR) {
+        Alert.alert(t('common.error'), 'App Store indisponible, réessayez.');
+      } else if (code === Purchases.PURCHASES_ERROR_CODE.PAYMENT_PENDING_ERROR) {
+        Alert.alert(t('common.error'), 'Paiement en attente (Ask to Buy).');
+      } else if (code === Purchases.PURCHASES_ERROR_CODE.PURCHASE_NOT_ALLOWED_ERROR) {
+        Alert.alert(t('common.error'), "Achats désactivés (Temps d'écran).");
+      } else if (error?.message?.startsWith('Timeout:')) {
+        Alert.alert(t('common.error'), 'Délai dépassé, vérifiez votre connexion.');
+      } else {
         Alert.alert(t('common.error'), t('paywall.error.purchase'));
       }
     } finally {
-      setIsPurchasing(false);
+      safeSetState(() => setIsPurchasing(false));
     }
   };
 
   const handleRestore = async () => {
-    setIsRestoring(true);
+    if (isRestoring) return;
+    safeSetState(() => setIsRestoring(true));
     try {
-      const success = await restorePurchases();
+      const success = await withTimeout(restorePurchases(), 30_000, 'restore');
+      if (!isMountedRef.current) return;
       if (success) {
         navigation.goBack();
       } else {
         Alert.alert(t('paywall.error.restoreNoneTitle'), t('paywall.error.restoreNoneMessage'));
       }
-    } catch {
-      Alert.alert(t('common.error'), t('paywall.error.restoreFailed'));
+    } catch (error: any) {
+      if (!isMountedRef.current) return;
+      const code: string | undefined = error?.code;
+      if (error?.message?.startsWith('Timeout:')) {
+        Alert.alert(t('common.error'), 'Délai dépassé, vérifiez votre connexion.');
+      } else if (code === Purchases.PURCHASES_ERROR_CODE.NETWORK_ERROR) {
+        Alert.alert(t('common.error'), 'Problème réseau, vérifiez votre connexion.');
+      } else if (code === Purchases.PURCHASES_ERROR_CODE.STORE_PROBLEM_ERROR) {
+        Alert.alert(t('common.error'), 'App Store indisponible, réessayez.');
+      } else {
+        Alert.alert(t('common.error'), t('paywall.error.restoreFailed'));
+      }
     } finally {
-      setIsRestoring(false);
+      safeSetState(() => setIsRestoring(false));
     }
   };
 
