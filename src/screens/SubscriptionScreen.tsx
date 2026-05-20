@@ -147,7 +147,7 @@ export default function SubscriptionScreen({ navigation }: SubscriptionScreenPro
     }
   };
 
-  const priceLabel = monthlyPackage?.product.priceString ?? '2,99 €';
+  const priceLabel = monthlyPackage?.product.priceString ?? '3,99 €';
 
   return (
     <LinearGradient colors={['#0A0A0F', '#0D0D1A', '#0A0A0F']} style={s.container}>
