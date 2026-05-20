@@ -3,6 +3,18 @@ import { File } from 'expo-file-system/next';
 
 const API_URL = 'https://planning-api-ivory.vercel.app/api/analyze';
 
+// Detect the actual media type from base64 magic bytes.
+// Required because some pickers (e.g. iPad iPadOS 26.5) return PNG/GIF/WebP,
+// and the Anthropic API rejects requests where media_type does not match
+// the actual image bytes (API 400 invalid_request_error).
+function detectMediaType(base64: string): 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' {
+  if (base64.startsWith('/9j/')) return 'image/jpeg';
+  if (base64.startsWith('iVBO')) return 'image/png';
+  if (base64.startsWith('R0lG')) return 'image/gif';
+  if (base64.startsWith('UklG')) return 'image/webp';
+  return 'image/jpeg'; // safe fallback for unknown formats
+}
+
 export async function extractEventsFromImage(imageUri: string): Promise<CalendarEvent[]> {
   if (!imageUri) throw new Error('URI image manquante');
 
@@ -17,6 +29,8 @@ export async function extractEventsFromImage(imageUri: string): Promise<Calendar
   if (!base64Image || base64Image.length < 10) {
     throw new Error('Image vide');
   }
+
+  const mediaType = detectMediaType(base64Image);
 
   const prompt = 'Analyze this planning image and extract ALL events. Return ONLY a JSON object with this exact structure: {"events":[{"id":"1","title":"Meeting","date":"2026-03-15","startTime":"09:00","endTime":"10:00","location":"","notes":""}]}';
 
@@ -33,7 +47,7 @@ export async function extractEventsFromImage(imageUri: string): Promise<Calendar
         model: 'claude-sonnet-4-20250514',
         max_tokens: 2000,
         messages: [{ role: 'user', content: [
-          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64Image } },
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Image } },
           { type: 'text', text: prompt }
         ]}]
       })
